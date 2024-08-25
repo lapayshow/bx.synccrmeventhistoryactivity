@@ -5,6 +5,9 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true)
 	die();
 }
 
+use Bitrix\Crm\EventTable;
+use Bitrix\Main\Entity\Query;
+
 /** @property-write string|null ErrorMessage */
 class CBPSyncCrmEventHistoryActivity extends CBPActivity
 {
@@ -57,7 +60,6 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
                 // Получаем историю событий в копию элемента CRM
                 while($arEvent = $res->Fetch()) {
                     $arEvent['ENTITY_ID'] = $CrmCopyElementId;
-                    $arEvent['EVENT_TEXT_1'] = $arEvent['EVENT_NAME'] . ' | ' . $arEvent['EVENT_TEXT_1'];
                     $arEvent['EVENT_ID'] = 'INFO';
                     $eventHistory[] = $arEvent;
                 }
@@ -68,7 +70,16 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
 
                 // Сохраняем все элементы истории в новый элемент CRM
                 foreach ($eventHistory as $event) {
-                    $CCrmEvent->Add($event, false);
+                    $eventId = $CCrmEvent->Add($event, false);
+                    // CREATED_BY и EVENT_NAME меняем у созданного элемента на D7,
+                    // потому что старый класс отрабатывает криво
+
+                    $eventTable = new EventTable();
+                    $data = [
+                        'CREATED_BY_ID' => $event['CREATED_BY_ID'],
+                        'EVENT_NAME' => $event['EVENT_NAME'],
+                    ];
+                    $saveResult = $eventTable::update($eventId, $data);
                 }
             }
         }
