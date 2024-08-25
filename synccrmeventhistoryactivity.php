@@ -57,6 +57,7 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
                 // Получаем историю событий в копию элемента CRM
                 while($arEvent = $res->Fetch()) {
                     $arEvent['ENTITY_ID'] = $CrmCopyElementId;
+                    $arEvent['EVENT_TEXT_1'] = $arEvent['EVENT_NAME'] . ' | ' . $arEvent['EVENT_TEXT_1'];
                     $arEvent['EVENT_ID'] = 'INFO';
                     $eventHistory[] = $arEvent;
                 }
