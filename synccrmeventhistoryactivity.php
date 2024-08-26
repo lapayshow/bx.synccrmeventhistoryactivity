@@ -6,6 +6,7 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true)
 }
 
 use Bitrix\Crm\EventTable;
+use Bitrix\Crm\Timeline\Entity\TimelineBindingTable;
 
 /** @property-write string|null ErrorMessage */
 class CBPSyncCrmEventHistoryActivity extends CBPActivity
@@ -78,8 +79,58 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
                         'CREATED_BY_ID' => $event['CREATED_BY_ID'],
                         'EVENT_NAME' => $event['EVENT_NAME'],
                     ];
-                    $saveResult = $eventTable::update($eventId, $data);
+                    $eventTable::update($eventId, $data);
                 }
+
+                switch ($CrmEntityType) {
+                    case 'LEAD': $CCrmOwnerType = \CCrmOwnerType::Lead; break;
+                    case 'DEAL': $CCrmOwnerType = \CCrmOwnerType::Deal; break;
+                    case 'CONTACT': $CCrmOwnerType = \CCrmOwnerType::Contact; break;
+                    case 'COMPANY': $CCrmOwnerType = \CCrmOwnerType::Company; break;
+                    default: $CCrmOwnerType = \CCrmOwnerType::Undefined;
+                }
+
+                TimelineBindingTable::attach(
+                    $CCrmOwnerType,
+                    $CrmElementId,
+                    $CCrmOwnerType,
+                    $CrmCopyElementId,
+                    [
+                        \Bitrix\Crm\Timeline\TimelineType::UNDEFINED,
+                        \Bitrix\Crm\Timeline\TimelineType::ACTIVITY,
+                        \Bitrix\Crm\Timeline\TimelineType::CREATION,
+                        \Bitrix\Crm\Timeline\TimelineType::MODIFICATION,
+                        \Bitrix\Crm\Timeline\TimelineType::LINK,
+                        \Bitrix\Crm\Timeline\TimelineType::UNLINK,
+                        \Bitrix\Crm\Timeline\TimelineType::MARK,
+                        \Bitrix\Crm\Timeline\TimelineType::COMMENT,
+                        \Bitrix\Crm\Timeline\TimelineType::WAIT,
+                        \Bitrix\Crm\Timeline\TimelineType::BIZPROC,
+                        \Bitrix\Crm\Timeline\TimelineType::CONVERSION,
+                        \Bitrix\Crm\Timeline\TimelineType::SENDER,
+                        \Bitrix\Crm\Timeline\TimelineType::DOCUMENT,
+                        \Bitrix\Crm\Timeline\TimelineType::RESTORATION,
+                        \Bitrix\Crm\Timeline\TimelineType::ORDER,
+                        \Bitrix\Crm\Timeline\TimelineType::ORDER_CHECK,
+                        \Bitrix\Crm\Timeline\TimelineType::SCORING,
+                        \Bitrix\Crm\Timeline\TimelineType::EXTERNAL_NOTICE,
+                        \Bitrix\Crm\Timeline\TimelineType::FINAL_SUMMARY,
+                        \Bitrix\Crm\Timeline\TimelineType::DELIVERY,
+                        \Bitrix\Crm\Timeline\TimelineType::FINAL_SUMMARY_DOCUMENTS,
+                        \Bitrix\Crm\Timeline\TimelineType::STORE_DOCUMENT,
+                        \Bitrix\Crm\Timeline\TimelineType::PRODUCT_COMPILATION,
+                        \Bitrix\Crm\Timeline\TimelineType::SIGN_DOCUMENT,
+                        \Bitrix\Crm\Timeline\TimelineType::SIGN_DOCUMENT_LOG,
+                        \Bitrix\Crm\Timeline\TimelineType::LOG_MESSAGE,
+                        \Bitrix\Crm\Timeline\TimelineType::CALENDAR_SHARING,
+                        \Bitrix\Crm\Timeline\TimelineType::TASK,
+                        \Bitrix\Crm\Timeline\TimelineType::AI_CALL_PROCESSING,
+                        \Bitrix\Crm\Timeline\TimelineType::SIGN_B2E_DOCUMENT,
+                        \Bitrix\Crm\Timeline\TimelineType::SIGN_B2E_DOCUMENT_LOG,
+                    ],
+                );
+
+                \CCrmActivity::AttachBinding($CCrmOwnerType, $CrmElementId, $CCrmOwnerType, $CrmCopyElementId);
             }
         }
 

@@ -1,4 +1,4 @@
-# synccrmeventhistoryactivity
+# bx.synccrmeventhistoryactivity
 Активити для бизнес-процессов CRM Bitrix
 
 Выполняет копирование истории событий элемента CRM Bitrix
