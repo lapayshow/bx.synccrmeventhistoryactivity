@@ -22,5 +22,4 @@ $arActivityDescription = [
 			['tasks'],
 		],
 	],
-    'ADDITIONAL_RESULT' => array('EntityFields')
 ];
