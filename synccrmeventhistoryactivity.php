@@ -6,7 +6,6 @@ if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true)
 }
 
 use Bitrix\Crm\EventTable;
-use Bitrix\Main\Entity\Query;
 
 /** @property-write string|null ErrorMessage */
 class CBPSyncCrmEventHistoryActivity extends CBPActivity
