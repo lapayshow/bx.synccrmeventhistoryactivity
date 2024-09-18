@@ -2,10 +2,11 @@
 
 if (!defined('B_PROLOG_INCLUDED') || B_PROLOG_INCLUDED !== true)
 {
-	die();
+    die();
 }
 
 use Bitrix\Crm\EventTable;
+use Bitrix\Crm\EventRelationsTable;
 use Bitrix\Crm\Timeline\Entity\TimelineBindingTable;
 
 /** @property-write string|null ErrorMessage */
@@ -13,18 +14,18 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
 {
     protected static $listDefaultEntityType = ['LEAD', 'CONTACT', 'COMPANY', 'DEAL'];
 
-	public function __construct($name)
-	{
-		parent::__construct($name);
-		$this->arProperties = [
-			'Title' => '',
+    public function __construct($name)
+    {
+        parent::__construct($name);
+        $this->arProperties = [
+            'Title' => '',
             'CrmEntityType' => null,  // Тип сущности элемента CRM
             'CrmElementId' => null,  // ID элемента CRM
             'CrmCopyElementId' => null,  // ID копии элемента CRM
-			'ErrorMessage' => null,
-		];
+            'ErrorMessage' => null,
+        ];
 
-		$this->setPropertiesTypes([
+        $this->setPropertiesTypes([
             'CrmEntityType' => array(
                 'Type' => 'string',
             ),
@@ -34,14 +35,14 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
             'CrmCopyElementId' => array(
                 'Type' => 'string',
             ),
-			'ErrorMessage' => [
+            'ErrorMessage' => [
                 'Type' => 'string'
             ],
-		]);
-	}
+        ]);
+    }
 
-	public function Execute()
-	{
+    public function Execute()
+    {
         $CrmEntityType = $this->__get('CrmEntityType');
         preg_match('/\d+/', $this->__get('CrmElementId'), $matches);
         $CrmElementId = (string)$matches[0];
@@ -49,19 +50,41 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
 
         if (!empty($CrmElementId) && !empty($CrmCopyElementId)) {
             if (\Bitrix\Main\Loader::includeModule('crm')) {
-                $CCrmEvent = new \CCrmEvent();
-
                 // Получаем историю событий родительского элемента CRM
-                $res = CCrmEvent::GetList(array(), array(
-                    "ENTITY_TYPE" => $CrmEntityType,
-                    "ENTITY_ID" => $CrmElementId,
-                ), false);
+                $eventRelations = EventRelationsTable::getList([
+                    'filter' => [
+                        "ENTITY_TYPE" => $CrmEntityType,
+                        "ENTITY_ID" => $CrmElementId,
+                    ],
+                ]);
+
+                foreach ($eventRelations as $eventRelation) {
+                    $eventId = $eventRelation['EVENT_ID'];
+                    $eventIds[] = $eventId;
+                    $eventRelationsList[$eventId] = $eventRelation;
+                }
+
+                $res = EventTable::getList([
+                    'filter' => [
+                        'ID' => $eventIds
+                    ],
+                ]);
 
                 // Получаем историю событий в копию элемента CRM
-                while($arEvent = $res->Fetch()) {
+                foreach ($res as $key => $arEvent) {
                     $arEvent['ENTITY_ID'] = $CrmCopyElementId;
                     $arEvent['EVENT_ID'] = 'INFO';
-                    $eventHistory[] = $arEvent;
+                    $eventHistory[$key]['event'] = [
+                        'CREATED_BY_ID' => $arEvent['CREATED_BY_ID'],
+                        'EVENT_ID' => $arEvent['EVENT_ID'],
+                        'EVENT_NAME' => $arEvent['EVENT_NAME'],
+                        'EVENT_TEXT_1' => $arEvent['EVENT_TEXT_1'],
+                        'EVENT_TEXT_2' => $arEvent['EVENT_TEXT_2'],
+                        'EVENT_TYPE' => $CrmEntityType,
+                        'FILES' => $arEvent['FILES'],
+                        'ENTITY_ID' => $CrmElementId,
+                    ];
+                    $eventHistory[$key]['eventRelation'] = $eventRelationsList[$arEvent['ID']];
                 }
 
                 // Переворачиваем массив событий, так как GetList возвращает от новым к старым,
@@ -70,16 +93,17 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
 
                 // Сохраняем все элементы истории в новый элемент CRM
                 foreach ($eventHistory as $event) {
-                    $eventId = $CCrmEvent->Add($event, false);
-                    // CREATED_BY и EVENT_NAME меняем у созданного элемента на D7,
-                    // потому что старый класс отрабатывает криво
+                    $eventData = $event['event'];
+                    $eventId = EventTable::add($eventData)?->getId();
 
-                    $eventTable = new EventTable();
-                    $data = [
-                        'CREATED_BY_ID' => $event['CREATED_BY_ID'],
-                        'EVENT_NAME' => $event['EVENT_NAME'],
+                    $eventRelationData = [
+                        'ASSIGNED_BY_ID' => $eventData['CREATED_BY_ID'],
+                        'ENTITY_TYPE' => $CrmEntityType,
+                        'ENTITY_ID' => $CrmElementId,
+                        'ENTITY_FIELD' => $event['eventRelation']['EVENT_ID'],
+                        'EVENT_ID' => $eventId,
                     ];
-                    $eventTable::update($eventId, $data);
+                    EventRelationsTable::add($eventRelationData);
                 }
 
                 switch ($CrmEntityType) {
@@ -135,7 +159,7 @@ class CBPSyncCrmEventHistoryActivity extends CBPActivity
         }
 
         return CBPActivityExecutionStatus::Closed;
-	}
+    }
 
     public static function GetPropertiesDialog($documentType, $activityName, $arWorkflowTemplate, $arWorkflowParameters, $arWorkflowVariables, $arCurrentValues = null, $formName = "")
     {
